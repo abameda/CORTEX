@@ -15,6 +15,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://cortex-pi-sable.vercel.app"),
   title: "Cortex | AI Solutions Agency",
   description:
     "Egypt's first autonomous AI agency. We design, build, and manage complete brand ecosystems.",
@@ -23,6 +24,14 @@ export const metadata: Metadata = {
     description:
       "Egypt's first autonomous AI agency. We design, build, and manage complete brand ecosystems.",
     type: "website",
+    url: "https://cortex-pi-sable.vercel.app",
+    siteName: "Cortex",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cortex | AI Solutions Agency",
+    description:
+      "Egypt's first autonomous AI agency. We design, build, and manage complete brand ecosystems.",
   },
 };
 
@@ -43,7 +52,7 @@ export default function RootLayout({
               name: "Cortex",
               description:
                 "Egypt's first autonomous AI agency. We design, build, and manage complete brand ecosystems.",
-              url: "https://cortex.agency",
+              url: "https://cortex-pi-sable.vercel.app",
             }),
           }}
         />
