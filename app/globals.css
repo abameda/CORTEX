@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cortex-base: #000000;
+  --color-cortex-surface: #0A0A0A;
+  --color-cortex-elevated: #141414;
+  --color-cortex-border: #1A1A1A;
+  --color-cortex-accent-deep: #7A9900;
+  --color-cortex-accent: #C8FF00;
+  --color-cortex-accent-light: #E8FF80;
+  --color-cortex-text-primary: #FFFFFF;
+  --color-cortex-text-secondary: #888888;
+  --color-cortex-text-muted: #555555;
+  --color-cortex-text-subtle: #333333;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #000000;
+  color: #FFFFFF;
+  font-family: var(--font-body);
+}
+
+
+canvas {
+  pointer-events: none;
+}
+
+/* Custom cursor — hide native cursor on fine-pointer (mouse) devices */
+@media (hover: hover) and (pointer: fine) {
+  *, *::before, *::after {
+    cursor: none !important;
+  }
+}
+
+/* Belt-and-suspenders: also via JS-added class */
+.custom-cursor,
+.custom-cursor * {
+  cursor: none !important;
+}

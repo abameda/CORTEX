@@ -1,0 +1,50 @@
+"use client";
+
+interface NeuralMarkProps {
+  variant?: "full" | "icon";
+  className?: string;
+  size?: number;
+}
+
+export function NeuralMark({ variant = "full", className = "", size = 40 }: NeuralMarkProps) {
+  if (variant === "icon") {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 100 100"
+        fill="none"
+        width={size}
+        height={size}
+        className={className}
+      >
+        <circle cx="50" cy="14" r="5.5" fill="#C8FF00" />
+        <circle cx="24" cy="38" r="4.5" fill="#C8FF00" />
+        <circle cx="76" cy="38" r="4.5" fill="#C8FF00" />
+        <circle cx="30" cy="68" r="4" fill="#C8FF00" />
+        <circle cx="70" cy="68" r="4" fill="#C8FF00" />
+        <circle cx="50" cy="88" r="5" fill="#C8FF00" />
+        <line x1="50" y1="19" x2="27" y2="35" stroke="#C8FF00" strokeWidth="1.5" opacity="0.5" />
+        <line x1="50" y1="19" x2="73" y2="35" stroke="#C8FF00" strokeWidth="1.5" opacity="0.5" />
+        <line x1="27" y1="41" x2="33" y2="65" stroke="#C8FF00" strokeWidth="1.2" opacity="0.4" />
+        <line x1="73" y1="41" x2="67" y2="65" stroke="#C8FF00" strokeWidth="1.2" opacity="0.4" />
+        <line x1="33" y1="70" x2="50" y2="84" stroke="#C8FF00" strokeWidth="1.2" opacity="0.45" />
+        <line x1="67" y1="70" x2="50" y2="84" stroke="#C8FF00" strokeWidth="1.2" opacity="0.45" />
+        <line x1="27" y1="41" x2="67" y2="65" stroke="#C8FF00" strokeWidth="0.8" opacity="0.2" />
+        <line x1="73" y1="41" x2="33" y2="65" stroke="#C8FF00" strokeWidth="0.8" opacity="0.2" />
+        <line x1="50" y1="19" x2="50" y2="84" stroke="#C8FF00" strokeWidth="0.6" opacity="0.12" />
+      </svg>
+    );
+  }
+
+  return (
+    <div className={`flex items-center gap-3 ${className}`}>
+      <NeuralMark variant="icon" size={size} />
+      <span
+        className="font-display font-bold tracking-[0.15em] text-white"
+        style={{ fontSize: size * 0.5 }}
+      >
+        CORTEX
+      </span>
+    </div>
+  );
+}
