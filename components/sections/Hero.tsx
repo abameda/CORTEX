@@ -30,7 +30,7 @@ export function Hero() {
       {/* ── Lamp — anchored to the very top of the section ── */}
       <div
         key={lampKey}
-        className="absolute inset-x-0 top-16 h-[55vh] z-10 pointer-events-none"
+        className="hidden sm:block absolute inset-x-0 top-16 h-[55vh] z-10 pointer-events-none"
       >
         {/* Left cone */}
         <motion.div
@@ -88,7 +88,7 @@ export function Hero() {
       </div>
 
       {/* ── Hero content ── */}
-      <div className="relative z-50 flex flex-col items-center text-center px-6 max-w-4xl mx-auto">
+      <div className="relative z-[45] flex flex-col items-center text-center px-6 max-w-4xl mx-auto">
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}
@@ -145,7 +145,7 @@ export function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.5, duration: 0.6 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[45]"
       >
         <motion.div
           animate={{ y: [0, 8, 0] }}
