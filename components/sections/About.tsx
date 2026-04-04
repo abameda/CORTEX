@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useInView } from "framer-motion";
 
 const stats = [
   { value: "24/7", label: "Autonomous Operation" },
@@ -16,6 +17,9 @@ const fadeUp = {
 };
 
 export function About() {
+  const svgRef = useRef<HTMLDivElement>(null);
+  const svgInView = useInView(svgRef, { once: true, margin: "-100px" });
+
   return (
     <section id="about" className="py-24 md:py-32 bg-cortex-surface">
       <div className="max-w-7xl mx-auto px-6">
@@ -49,6 +53,7 @@ export function About() {
 
           <motion.div
             {...fadeUp}
+            ref={svgRef}
             transition={{ ...fadeUp.transition, delay: 0.3 }}
             className="flex justify-center"
           >
@@ -64,9 +69,8 @@ export function About() {
                   r={i === 0 || i === 5 ? 8 : 6}
                   fill="#C8FF00"
                   initial={{ scale: 0, opacity: 0 }}
-                  whileInView={{ scale: 1, opacity: 1 }}
+                  animate={svgInView ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
                   transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}
-                  viewport={{ once: true }}
                 />
               ))}
               {[
@@ -82,9 +86,8 @@ export function About() {
                   strokeWidth={i < 6 ? 1.5 : 0.8}
                   opacity={i < 6 ? 0.3 : 0.15}
                   initial={{ pathLength: 0 }}
-                  whileInView={{ pathLength: 1 }}
+                  animate={svgInView ? { pathLength: 1 } : { pathLength: 0 }}
                   transition={{ delay: 0.3 + i * 0.08, duration: 0.6 }}
-                  viewport={{ once: true }}
                 />
               ))}
             </svg>
