@@ -13,7 +13,7 @@ const Orb = dynamic(
   { ssr: false }
 )
 
-type CallPhase = "idle" | "connecting" | "active" | "ended" | "invalid"
+type CallPhase = "idle" | "connecting" | "active" | "ended" | "invalid" | "failed"
 
 // The call link carries a single-use token in the URL fragment (#t=...).
 // Fragments are never sent to servers or in Referer headers. The token is
@@ -46,9 +46,31 @@ function CallUI() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const limitRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tokenRef = useRef<string | null>(null)
+  // The link is single-use: once the token exchange succeeds, a failed or
+  // interrupted session must never offer "Start Call" again (it would 404).
+  const startingRef = useRef(false)
+  const connectedRef = useRef(false)
+
+  const clearTimers = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    if (limitRef.current) clearTimeout(limitRef.current)
+    timerRef.current = null
+    limitRef.current = null
+  }, [])
+
+  const failAfterTokenUsed = useCallback(() => {
+    startingRef.current = false
+    clearTimers()
+    setAgentState(null)
+    setPhase("failed")
+  }, [clearTimers])
 
   useEffect(() => {
-    tokenRef.current = readTokenFromHash()
+    // React Strict Mode runs effects twice in development; the first run has
+    // already removed the fragment, so keep a token that was already read.
+    if (!tokenRef.current) {
+      tokenRef.current = readTokenFromHash()
+    }
     if (!tokenRef.current) {
       setPhase("invalid")
       return
@@ -59,20 +81,36 @@ function CallUI() {
 
   const conversation = useConversation({
     onConnect: () => {
+      startingRef.current = false
+      connectedRef.current = true
       setPhase("active")
       setAgentState("listening")
     },
     onDisconnect: () => {
+      connectedRef.current = false
+      startingRef.current = false
+      clearTimers()
       setPhase("ended")
       setAgentState(null)
-      if (timerRef.current) clearInterval(timerRef.current)
-      if (limitRef.current) clearTimeout(limitRef.current)
+    },
+    onStatusChange: ({ status }) => {
+      // If session setup fails after the token exchange (e.g. the SDK's own
+      // microphone request), the SDK reports "disconnected" without calling
+      // onError or onDisconnect.
+      if (status === "disconnected" && startingRef.current && !connectedRef.current) {
+        failAfterTokenUsed()
+      }
     },
     onError: (error) => {
       console.error("Conversation error:", error)
-      setPhase("idle")
-      setAgentState(null)
-      if (timerRef.current) clearInterval(timerRef.current)
+      if (connectedRef.current) {
+        // Non-fatal while connected: keep the call and its duration limit
+        // running. onDisconnect handles the session actually ending.
+        return
+      }
+      if (startingRef.current) {
+        failAfterTokenUsed()
+      }
     },
     onModeChange: (mode) => {
       setAgentState(mode.mode === "speaking" ? "talking" : "listening")
@@ -130,6 +168,7 @@ function CallUI() {
       const maxSeconds = Math.max(60, Math.min(data.maxDurationSeconds ?? 2100, 3600))
       limitRef.current = setTimeout(() => conversation.endSession(), maxSeconds * 1000)
 
+      startingRef.current = true
       conversation.startSession({
         conversationToken: data.conversationToken,
         connectionType: "webrtc",
@@ -347,6 +386,25 @@ function CallUI() {
               </p>
             </motion.div>
           )}
+
+          {phase === "failed" && (
+            <motion.div
+              key="failed"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.4 }}
+              className="text-center"
+            >
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-white mb-2">
+                The call couldn&apos;t connect
+              </h1>
+              <p className="text-cortex-text-secondary text-sm sm:text-base max-w-sm">
+                This link has now been used. Please reply to your booking
+                confirmation and the Cortex team will send you a new call link.
+              </p>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {/* Action buttons */}
@@ -417,7 +475,7 @@ function CallUI() {
             </motion.div>
           )}
 
-          {phase === "ended" && (
+          {(phase === "ended" || phase === "failed") && (
             <motion.div
               key="ended-btn"
               initial={{ opacity: 0, scale: 0.95 }}
