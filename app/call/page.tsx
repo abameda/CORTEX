@@ -13,7 +13,21 @@ const Orb = dynamic(
   { ssr: false }
 )
 
-type CallPhase = "idle" | "connecting" | "active" | "ended"
+type CallPhase = "idle" | "connecting" | "active" | "ended" | "invalid"
+
+// The call link carries a single-use token in the URL fragment (#t=...).
+// Fragments are never sent to servers or in Referer headers. The token is
+// exchanged by Cortex Ops for a short-lived conversation token for the private
+// ElevenLabs agent, so calls can only be started from a link issued by staff.
+const OPS_URL = (process.env.NEXT_PUBLIC_OPS_URL ?? "").replace(/\/+$/, "")
+const BOOKING_URL = "https://cal.com/cortexai/discovery-call"
+
+function readTokenFromHash() {
+  if (typeof window === "undefined") return null
+  const params = new URLSearchParams(window.location.hash.slice(1))
+  const token = params.get("t")
+  return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null
+}
 
 export default function CallPage() {
   return (
@@ -28,7 +42,20 @@ function CallUI() {
   const [agentState, setAgentState] = useState<AgentState>(null)
   const [micError, setMicError] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const [linkError, setLinkError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const limitRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tokenRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    tokenRef.current = readTokenFromHash()
+    if (!tokenRef.current) {
+      setPhase("invalid")
+      return
+    }
+    // Keep the token in memory only, out of the address bar and history.
+    window.history.replaceState(null, "", window.location.pathname)
+  }, [])
 
   const conversation = useConversation({
     onConnect: () => {
@@ -39,6 +66,7 @@ function CallUI() {
       setPhase("ended")
       setAgentState(null)
       if (timerRef.current) clearInterval(timerRef.current)
+      if (limitRef.current) clearTimeout(limitRef.current)
     },
     onError: (error) => {
       console.error("Conversation error:", error)
@@ -52,19 +80,64 @@ function CallUI() {
   })
 
   const startCall = useCallback(async () => {
+    const token = tokenRef.current
+    if (!token || !OPS_URL) {
+      setPhase("invalid")
+      return
+    }
+
     setMicError(false)
+    setLinkError(null)
     setPhase("connecting")
     setAgentState("thinking")
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      setMicError(true)
+      setPhase("idle")
+      setAgentState(null)
+      return
+    }
+
+    try {
+      const response = await fetch(`${OPS_URL}/api/call/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      })
+      const data = (await response.json().catch(() => ({}))) as {
+        conversationToken?: string
+        callSessionId?: string
+        maxDurationSeconds?: number
+        error?: string
+      }
+
+      if (response.status === 404) {
+        tokenRef.current = null
+        setLinkError(data.error ?? null)
+        setPhase("invalid")
+        setAgentState(null)
+        return
+      }
+
+      if (!response.ok || !data.conversationToken || !data.callSessionId) {
+        throw new Error(data.error || "Could not start the call.")
+      }
+
       setElapsed(0)
       timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+      // Server-side limits are configured on the agent; this is a client-side backstop.
+      const maxSeconds = Math.max(60, Math.min(data.maxDurationSeconds ?? 2100, 3600))
+      limitRef.current = setTimeout(() => conversation.endSession(), maxSeconds * 1000)
+
       conversation.startSession({
-        agentId: "agent_6901kn9bk199e2gb9ygpjtgt7kv1",
+        conversationToken: data.conversationToken,
+        connectionType: "webrtc",
+        dynamicVariables: { call_session_id: data.callSessionId },
       })
-    } catch {
-      console.error("Failed to start call")
-      setMicError(true)
+    } catch (error) {
+      console.error("Failed to start call", error)
+      setLinkError(error instanceof Error ? error.message : "Could not start the call.")
       setPhase("idle")
       setAgentState(null)
     }
@@ -75,11 +148,13 @@ function CallUI() {
     setPhase("ended")
     setAgentState(null)
     if (timerRef.current) clearInterval(timerRef.current)
+    if (limitRef.current) clearTimeout(limitRef.current)
   }, [conversation])
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
+      if (limitRef.current) clearTimeout(limitRef.current)
     }
   }, [])
 
@@ -170,6 +245,9 @@ function CallUI() {
               <p className="text-cortex-text-secondary text-sm sm:text-base max-w-sm">
                 Tap to begin your conversation with Cortex&apos;s AI consultant
               </p>
+              {linkError && (
+                <p className="text-red-400 text-sm mt-3">{linkError}</p>
+              )}
               {micError && (
                 <motion.p
                   initial={{ opacity: 0 }}
@@ -179,6 +257,25 @@ function CallUI() {
                   Please allow microphone access to begin your call
                 </motion.p>
               )}
+            </motion.div>
+          )}
+
+          {phase === "invalid" && (
+            <motion.div
+              key="invalid"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.4 }}
+              className="text-center"
+            >
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-white mb-2">
+                This call link isn&apos;t valid
+              </h1>
+              <p className="text-cortex-text-secondary text-sm sm:text-base max-w-sm">
+                {linkError ??
+                  "Discovery calls start from the private link we send after you book. It may have expired or already been used."}
+              </p>
             </motion.div>
           )}
 
@@ -300,6 +397,24 @@ function CallUI() {
             >
               End Call
             </motion.button>
+          )}
+
+          {phase === "invalid" && (
+            <motion.div
+              key="invalid-btn"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <a
+                href={BOOKING_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex px-8 py-3.5 bg-cortex-accent text-black font-display font-bold text-base rounded-lg transition-shadow hover:shadow-[0_0_24px_rgba(200,255,0,0.3)]"
+              >
+                Book a discovery call
+              </a>
+            </motion.div>
           )}
 
           {phase === "ended" && (
